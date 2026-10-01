@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tieto Banktech: fraud widget</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  :root{
+    --primary:#021E57;      /* Tieto navy */
+    --secondary:#3531CF;    /* Tieto vivid blue */
+    --accent:#F5FF56;       /* Tieto lime-yellow — used sparingly, selected/current states only */
+    --paper:#FCFAF7;
+    --surface:#FFFFFF;
+    --hairline:#E4E1DA;
+    --ink:#0F1524;
+    --ink-2:#4A5164;
+    --ink-3:#8A8F9C;
+    --ok:#1C8A5A;
+    --ok-bg:#E7F5EE;
+    --amber:#B5790B;
+    --amber-bg:#FBF0DD;
+    --warn:#B4380D;
+    --warn-bg:#FCE9E2;
+    --focus:#021E57;
+  }
+
+  html, body{ margin:0; padding:0; }
+  body{
+    display:flex;
+    justify-content:center;
+    background:#EDEAE2;
+    min-height:100vh;
+    padding:20px 16px;
+    font-family:'Inter',sans-serif;
+  }
+  #stage{ overflow:hidden; }
+  #stage .widget{ transform-origin:top left; }
+
+  .widget, .widget *{ box-sizing:border-box; }
+  .widget{
+    width:800px;
+    font-family:'Inter',sans-serif;
+    font-size:16px;
+    color:var(--ink);
+    background:var(--paper);
+    border:1px solid var(--hairline);
+    border-radius:10px;
+    overflow:hidden;
+  }
+  .mono{ font-family:'JetBrains Mono',monospace; }
+
+  .topbar{
+    height:44px;
+    background:var(--primary);
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 16px;
+  }
+  .topbar .brand{
+    font-weight:700; letter-spacing:0.01em; font-size:15px;
+    display:flex; align-items:center; gap:8px; text-transform:lowercase;
+  }
+  .topbar .brand .dot{ width:6px;height:6px;border-radius:50%;background:var(--accent); }
+  .topbar .meta{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:#C8D0E8; }
+
+  .main{ padding:18px; display:flex; flex-direction:column; gap:16px; }
+
+  .chip-source{
+    font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-3);
+    display:flex; align-items:center; gap:5px; margin-bottom:6px;
+  }
+  .chip-source .pip{ color:var(--secondary); font-size:13px; }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--hairline);
+    border-radius:8px;
+    padding:14px;
+  }
+
+  /* Customer strip */
+  .cust-strip{ display:flex; align-items:center; gap:12px; }
+  .avatar{
+    width:44px;height:44px;border-radius:50%;
+    background:var(--primary); color:var(--accent);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:15px; flex:none;
+  }
+  .cust-main{ flex:1; min-width:0; }
+  .cust-name{ font-size:20px; font-weight:700; line-height:1.2; }
+  .cust-sub{ font-size:13px; color:var(--ink-2); }
+  .cust-side{ text-align:right; flex:none; }
+  .verify{
+    display:inline-flex; align-items:center; gap:5px;
+    font-size:12px; font-weight:600; color:var(--ok); background:var(--ok-bg);
+    border-radius:20px; padding:3px 9px;
+  }
+  .verify .dot{ width:6px;height:6px;border-radius:50%; background:var(--ok); }
+  .cust-side .phone{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--ink-2); margin-top:6px; }
+  .cust-side .channel{ font-size:11.5px; color:var(--ink-3); margin-top:2px; }
+
+  .section-title{ font-size:13px; font-weight:700; color:var(--ink-2); text-transform:uppercase; letter-spacing:0.04em; }
+
+  /* Flagged transaction */
+  .tx-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+  .tx-merchant{ font-size:18px; font-weight:700; }
+  .tx-sub{ font-size:13px; color:var(--ink-2); margin-top:2px; }
+  .tx-amount{ font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:700; text-align:right; flex:none; }
+  .tx-meta{ display:flex; gap:16px; margin-top:12px; flex-wrap:wrap; }
+  .tx-meta .item{ font-size:12.5px; color:var(--ink-2); }
+  .tx-meta .item b{ display:block; font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--ink); font-weight:600; margin-top:2px; }
+  .tx-flag-pill{
+    display:inline-flex; align-items:center; gap:6px;
+    background:var(--warn-bg); color:var(--warn);
+    font-size:11.5px; font-weight:700; padding:3px 10px; border-radius:20px;
+  }
+
+  /* Risk gauge (signature element) */
+  .risk-block{ display:flex; gap:20px; align-items:center; }
+  .gauge{
+    width:132px; height:132px; border-radius:50%; flex:none;
+    background: conic-gradient(var(--risk-color, var(--warn)) calc(var(--score, 0) * 1%), var(--hairline) 0);
+    display:flex; align-items:center; justify-content:center; position:relative;
+  }
+  .gauge::before{ content:""; position:absolute; inset:13px; background:var(--surface); border-radius:50%; }
+  .gauge .readout{ position:relative; display:flex; flex-direction:column; align-items:center; }
+  .gauge .score{ font-family:'JetBrains Mono',monospace; font-size:30px; font-weight:700; line-height:1; }
+  .gauge .risklabel{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; margin-top:4px; color:var(--risk-color, var(--warn)); }
+
+  .factors{ flex:1; display:flex; flex-direction:column; gap:10px; min-width:0; }
+  .factor .top{ display:flex; justify-content:space-between; gap:8px; font-size:13px; margin-bottom:4px; }
+  .factor .top .name{ font-weight:600; }
+  .factor .top .weight{ font-size:11px; color:var(--ink-3); text-transform:uppercase; letter-spacing:0.03em; flex:none; }
+  .factor .bar{ height:6px; border-radius:4px; background:var(--hairline); overflow:hidden; }
+  .factor .bar .fill{ height:100%; border-radius:4px; background:var(--risk-color, var(--warn)); }
+  .factor .note{ font-size:12px; color:var(--ink-2); margin-top:3px; }
+
+  .btn{
+    appearance:none; border:1px solid var(--hairline); background:var(--surface);
+    font-family:'Inter',sans-serif; font-weight:600; font-size:13.5px;
+    padding:9px 16px; border-radius:6px; cursor:pointer; color:var(--ink);
+  }
+  .btn:hover{ border-color:var(--ink-3); }
+  .btn:focus-visible{ outline:2px solid var(--focus); outline-offset:2px; }
+  .btn.primary{ background:var(--primary); border-color:var(--primary); color:#fff; }
+  .btn[disabled]{ opacity:0.55; cursor:default; }
+
+  .case-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .case-confirm{
+    display:none; align-items:center; gap:8px;
+    background:var(--ok-bg); color:var(--ok); font-size:13px; font-weight:600;
+    padding:8px 12px; border-radius:6px;
+  }
+  .case-confirm.show{ display:inline-flex; }
+  .case-confirm .dot{ width:7px;height:7px;border-radius:50%; background:var(--ok); }
+
+  @media (prefers-reduced-motion: no-preference){
+    .widget{ transition:none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="stage">
+<div class="widget" aria-label="Tieto Banktech fraud review widget" data-mode="boot">
+
+  <div class="topbar">
+    <span class="brand"><span class="dot"></span>tieto banktech</span>
+    <span class="meta" id="topbarRef">TXN REF &mdash;</span>
+  </div>
+
+  <div class="main">
+
+    <div class="card cust-strip">
+      <div class="avatar" id="custInitials">—</div>
+      <div class="cust-main">
+        <div class="cust-name" id="custName">Loading…</div>
+        <div class="cust-sub" id="custSub"></div>
+      </div>
+      <div class="cust-side">
+        <span class="verify" id="verifyBadge"><span class="dot"></span> Verifying…</span>
+        <div class="phone" id="custPhone">—</div>
+        <div class="channel" id="channelToday">—</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="chip-source"><span class="pip">•••</span> Fraud &amp; risk engine &nbsp;·&nbsp; flagged transaction</div>
+      <div class="card">
+        <div class="tx-head">
+          <div>
+            <div class="tx-merchant" id="txMerchant">—</div>
+            <div class="tx-sub" id="txSub"></div>
+          </div>
+          <div class="tx-amount" id="txAmount">—</div>
+        </div>
+        <div class="tx-meta">
+          <div class="item">Date &amp; time<b id="txTime">—</b></div>
+          <div class="item">Channel<b id="txChannel">—</b></div>
+          <div class="item">Location<b id="txLocation">—</b></div>
+          <div class="item">Card<b id="txCard">—</b></div>
+        </div>
+        <div style="margin-top:12px;">
+          <span class="tx-flag-pill">⚠ Flagged for review</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="chip-source"><span class="pip">•••</span> Fraud &amp; risk engine &nbsp;·&nbsp; why this was flagged</div>
+      <div class="card risk-block">
+        <div class="gauge" id="gauge">
+          <div class="readout">
+            <div class="score mono" id="riskScore">—</div>
+            <div class="risklabel" id="riskLabel">—</div>
+          </div>
+        </div>
+        <div class="factors" id="factors"></div>
+      </div>
+    </div>
+
+    <div class="card case-row">
+      <div>
+        <div class="section-title">Next action</div>
+        <div class="tx-sub" style="margin-top:4px;">If the customer cannot confirm this transaction, open a fraud case to start the investigation.</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px; flex:none;">
+        <span class="case-confirm" id="caseConfirm"><span class="dot"></span><span id="caseConfirmText">Case opened</span></span>
+        <button class="btn primary" id="btnOpenCase" data-action="open-case">Open a fraud case</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mousetrap/1.6.5/mousetrap.min.js"></script>
+<script src="https://devpccwidgetapi.blob.core.windows.net/dist/widget-api-lib.min.js"></script>
+<script>
+(function(){
+  const HOST_TIMEOUT = 1500;
+
+  const MOCK = {
+    name: "Henrik Dahl",
+    initials: "HD",
+    segment: "Retail card customer · 41 · Trondheim",
+    phone: "+47 934 17 208",
+    txnRef: "TXN-2026-0927-7741",
+    merchant: "ElektroNord AS",
+    channel: "Card-not-present · online",
+    time: "27 Sep 2026, 02:47",
+    location: "IP geolocated: Germany (customer's recent activity: Norway)",
+    card: "Tieto Banktech Credit Mastercard •••• 9183",
+    amount: "NOK 18,450.00",
+    score: 82,
+    riskLevel: "High risk",
+    factors: [
+      { name:"Unusual transaction amount", weight:"High", pct:90, note:"3.8× this customer's typical transaction value" },
+      { name:"Unrecognised device", weight:"High", pct:85, note:"First time this device fingerprint has been seen on the account" },
+      { name:"Location mismatch", weight:"Medium", pct:60, note:"Purchase IP geolocated to Germany; recent activity has been in Norway" },
+      { name:"New merchant relationship", weight:"Low", pct:30, note:"First transaction with this merchant" },
+      { name:"Late-night timing", weight:"Low", pct:20, note:"Placed at 02:47 local time" }
+    ]
+  };
+
+  function riskColor(score){
+    if (score >= 70) return getComputedStyle(document.documentElement).getPropertyValue('--warn').trim();
+    if (score >= 40) return getComputedStyle(document.documentElement).getPropertyValue('--amber').trim();
+    return getComputedStyle(document.documentElement).getPropertyValue('--ok').trim();
+  }
+
+  function renderGauge(){
+    const gauge = document.getElementById('gauge');
+    const color = riskColor(MOCK.score);
+    gauge.style.setProperty('--score', MOCK.score);
+    gauge.style.setProperty('--risk-color', color);
+    document.getElementById('riskScore').textContent = MOCK.score;
+    document.getElementById('riskLabel').textContent = MOCK.riskLevel;
+    document.getElementById('riskLabel').style.color = color;
+  }
+
+  function renderFactors(){
+    const color = riskColor(MOCK.score);
+    const el = document.getElementById('factors');
+    el.innerHTML = MOCK.factors.map(f => `
+      <div class="factor">
+        <div class="top"><span class="name">${f.name}</span><span class="weight">${f.weight}</span></div>
+        <div class="bar"><div class="fill" style="width:${f.pct}%; background:${color};"></div></div>
+        <div class="note">${f.note}</div>
+      </div>
+    `).join('');
+  }
+
+  function renderTransaction(){
+    document.getElementById('topbarRef').textContent = 'TXN REF ' + MOCK.txnRef;
+    document.getElementById('txMerchant').textContent = MOCK.merchant;
+    document.getElementById('txSub').textContent = MOCK.channel;
+    document.getElementById('txAmount').textContent = MOCK.amount;
+    document.getElementById('txTime').textContent = MOCK.time;
+    document.getElementById('txChannel').textContent = MOCK.channel;
+    document.getElementById('txLocation').textContent = MOCK.location;
+    document.getElementById('txCard').textContent = MOCK.card;
+  }
+
+  function renderCustomer(){
+    document.getElementById('custInitials').textContent = MOCK.initials;
+    document.getElementById('custName').textContent = MOCK.name;
+    document.getElementById('custSub').textContent = MOCK.segment;
+    document.getElementById('custPhone').textContent = MOCK.phone;
+    document.getElementById('verifyBadge').innerHTML = '<span class="dot"></span> BankID verified';
+  }
+
+  function setChannelToday(label){
+    const el = document.getElementById('channelToday');
+    if (el) el.textContent = label;
+  }
+
+  function renderMock(){
+    renderCustomer();
+    renderTransaction();
+    renderGauge();
+    renderFactors();
+    setChannelToday('Demo mode');
+  }
+
+  async function hydrateFromApi(api){
+    // In production, auth.* keys the lookup into the fraud & risk engine for
+    // the transaction that triggered this interaction. No live endpoint was
+    // in scope for this prototype, so the same mock shape is rendered.
+    let customerKey = null, userName = null;
+    try { customerKey = await api.get('auth.customerKey'); } catch(e) {}
+    try { userName = await api.get('auth.userName'); } catch(e) {}
+    renderMock();
+    if (userName) console.info('[tieto-banktech-fraud-widget] agent:', userName, 'customerKey:', customerKey);
+  }
+
+  function wireEvents(api){
+    // Inbound phone is the scenario this widget supports; chat was not
+    // selected for this use case.
+    api.on('SYSTEM_INCOMING_CALL', () => setChannelToday('Phone'));
+    api.on('SYSTEM_CALL_STATE_CHANGE', () => setChannelToday('Phone'));
+  }
+
+  function wireActions(api){
+    const call = async (method, ...args) => {
+      if (api && api.call) {
+        try { return await api.call(method, ...args); }
+        catch(e){ console.warn('[tieto-banktech-fraud-widget] api.call failed, falling back to local state:', method, e); }
+      }
+      return null;
+    };
+
+    document.getElementById('btnOpenCase').addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      btn.textContent = 'Opening case…';
+      // TODO: confirm the real method name once the fraud case-management
+      // system exposes an action through the host or a middleware REST call.
+      const caseRef = 'FC-2026-' + String(Math.floor(10000 + Math.random()*89999)).slice(0,5);
+      await call('fraudCase.open', MOCK.txnRef, caseRef);
+      btn.textContent = 'Case opened';
+      const confirm = document.getElementById('caseConfirm');
+      document.getElementById('caseConfirmText').textContent = 'Case ' + caseRef + ' opened';
+      confirm.classList.add('show');
+      fitStage();
+    });
+  }
+
+  function fitStage(){
+    // Standalone demo page only. Scales the 800px-wide widget down (never
+    // up) so it fits a narrower browser window or preview pane without
+    // horizontal scrolling. The widget's own internal layout stays exactly
+    // 800px, as required when it is embedded in the Puzzel Agent Application.
+    const stage = document.getElementById('stage');
+    const widget = stage.querySelector('.widget');
+    const natural = 800;
+    const available = Math.max(280, window.innerWidth - 32);
+    const scale = Math.min(1, available / natural);
+    widget.style.transform = 'scale(' + scale + ')';
+    stage.style.width = Math.round(natural * scale) + 'px';
+    stage.style.height = Math.round(widget.offsetHeight * scale) + 'px';
+  }
+  window.addEventListener('resize', fitStage);
+
+  async function boot(){
+    fitStage();
+    let api = null;
+    try {
+      api = await Promise.race([
+        widgetApiLib.connect(),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('no-host')), HOST_TIMEOUT))
+      ]);
+    } catch (e) {
+      api = null;
+    }
+
+    const widgetRoot = document.querySelector('.widget');
+    if (api) {
+      widgetRoot.dataset.mode = 'live';
+      await hydrateFromApi(api);
+      wireEvents(api);
+      wireActions(api);
+      api.ready();
+    } else {
+      widgetRoot.dataset.mode = 'demo';
+      renderMock();
+      wireActions(null);
+    }
+    fitStage();
+  }
+
+  window.addEventListener('load', boot);
+})();
+</script>
+</body>
+</html>
